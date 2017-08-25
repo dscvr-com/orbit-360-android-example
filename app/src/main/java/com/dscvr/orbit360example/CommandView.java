@@ -14,10 +14,10 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 
 import com.dscvr.orbit360sdk.Command;
-import com.dscvr.orbit360sdk.MotorControl;
-import com.dscvr.orbit360sdk.MotorDiscovery;
-import com.dscvr.orbit360sdk.MotorDiscoveryException;
-import com.dscvr.orbit360sdk.MotorListener;
+import com.dscvr.orbit360sdk.Orbit360Control;
+import com.dscvr.orbit360sdk.Orbit360Discovery;
+import com.dscvr.orbit360sdk.Orbit360DiscoveryException;
+import com.dscvr.orbit360sdk.Orbit360Listener;
 import com.dscvr.orbit360sdk.Point2f;
 import com.dscvr.orbit360sdk.ScriptRunner;
 
@@ -26,6 +26,14 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
+/**
+ * This class contains a simple usage example for the Obrit360 Android SDK.
+ * When the view loads, it connects to the Orbit360. As soon as the connection
+ * is established, it allows controlling the horizontal and vertical axis.
+ *
+ * The movement in this example is done using the ScriptRunner class, since it provides
+ * a basic estimation of the current position of the Orbit360's arm.
+ */
 public class CommandView extends AppCompatActivity {
 
     Button buttonDown;
@@ -38,7 +46,7 @@ public class CommandView extends AppCompatActivity {
     TextView textViewPosition;
     TextView textViewStatus;
 
-    MotorDiscovery discovery;
+    Orbit360Discovery discovery;
     ScriptRunner runner;
 
     Timer updateTimer;
@@ -47,9 +55,12 @@ public class CommandView extends AppCompatActivity {
 
     final int REQUEST_PERMISSIONS = 1890;
 
-    MotorListener.MotorConnectedListener onMotorConnected = new MotorListener.MotorConnectedListener() {
+    /**
+     * Callback that signals us that the Orbit360 was connected successfully.
+     */
+    Orbit360Listener.Orbit360ConnectedListener onOrbit360Connected = new Orbit360Listener.Orbit360ConnectedListener() {
         @Override
-        public void motorConnected(MotorControl control) {
+        public void orbit360Connected(Orbit360Control control) {
             Log.w("Motor", "Motor Connected");
             CommandView.this.runner = new ScriptRunner(control);
             CommandView.this.runOnUiThread(new Runnable() {
@@ -62,6 +73,9 @@ public class CommandView extends AppCompatActivity {
         }
     };
 
+    /**
+     * Task to update the X and Y coordinates in the UI.
+     */
     TimerTask updatePosition = new TimerTask() {
         @Override
         public void run() {
@@ -76,20 +90,26 @@ public class CommandView extends AppCompatActivity {
         }
     };
 
-    MotorListener.ButtonPressedListener onTopButtonPressed = new MotorListener.ButtonPressedListener() {
+    /**
+     * Callbacks that are invoked whenever the remote control buttons of the Orbit 360 are pressed.
+     */
+    Orbit360Listener.ButtonPressedListener onTopButtonPressed = new Orbit360Listener.ButtonPressedListener() {
         @Override
         public void buttonPressed() {
             Log.w("Button", "Top Button Pressed");
         }
     };
 
-    MotorListener.ButtonPressedListener onBottomButtonPressed = new MotorListener.ButtonPressedListener() {
+    Orbit360Listener.ButtonPressedListener onBottomButtonPressed = new Orbit360Listener.ButtonPressedListener() {
         @Override
         public void buttonPressed() {
             Log.w("Button", "Bottom Button Pressed");
         }
     };
 
+    /**
+     * Callback that is called when the ScriptRunner finishes asynchronous execution of a script.
+     */
     ScriptRunner.ExecutionFinishedHandler onScriptFinished = new ScriptRunner.ExecutionFinishedHandler() {
         @Override
         public void commandExecutionFinished(List<Command> commands, ScriptRunner sender) {
@@ -103,13 +123,21 @@ public class CommandView extends AppCompatActivity {
         }
     };
 
+    /**
+     * We initialize the Orbit360Discovery here, then we attempt to get permission for using
+     * Android's Bluetooth service. As soon as the permission is granted, we connect.
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_command_view);
 
-        discovery = new MotorDiscovery(BluetoothAdapter.getDefaultAdapter(),
-                new MotorListener(onMotorConnected, onTopButtonPressed, onBottomButtonPressed),
+        /**
+         * Initialize our discovery helper using the bluetooth adapter and
+         * callbacks for the Orbit360 and the remote buttons.
+         */
+        discovery = new Orbit360Discovery(BluetoothAdapter.getDefaultAdapter(),
+                new Orbit360Listener(onOrbit360Connected, onTopButtonPressed, onBottomButtonPressed),
                 this);
 
         findViews();
@@ -118,10 +146,13 @@ public class CommandView extends AppCompatActivity {
         disableButtons();
         setMotorStatus("Idle");
 
+        /**
+         * Check for bluetooth permission.
+         */
         if(ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH) == PackageManager.PERMISSION_GRANTED &&
                 ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_ADMIN) == PackageManager.PERMISSION_GRANTED &&
                 ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            connectMotor();
+            connectMotorOrbit360();
         } else {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN, Manifest.permission.ACCESS_COARSE_LOCATION},
                     REQUEST_PERMISSIONS);
@@ -131,21 +162,28 @@ public class CommandView extends AppCompatActivity {
         updateTimer.schedule(updatePosition, 50, 50);
     }
 
+    /**
+     * This callback is invoked whenever a permission is granted.
+     * We connect the Orbit360 when permission is granted.
+     */
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         if(requestCode == REQUEST_PERMISSIONS) {
-            // TODO - you should actually check grantResults in here.
-            connectMotor();
+            // TODO - We should actually check grantResults in here.
+            connectMotorOrbit360();
         }
 
     }
 
-    private void connectMotor() {
+    /**
+     * Actual code to connect the Orbit360.
+     */
+    private void connectMotorOrbit360() {
         setMotorStatus("Connecting...");
 
         try {
             discovery.connect();
-        } catch(MotorDiscoveryException ex) {
+        } catch(Orbit360DiscoveryException ex) {
             setMotorStatus("Error connecting. Is Bluetooth enabled?");
         }
     }
@@ -160,8 +198,11 @@ public class CommandView extends AppCompatActivity {
         this.textViewStatus = (TextView)this.findViewById(R.id.textViewStatus);
     }
 
+    /**
+     * Creates a new script, containing of a single command, and runs it asynchronously.
+     */
     private void moveSync(Point2f steps) {
-        Command cmd = Command.moveXY(steps, new Point2f(speed, speed).div(MotorControl.DEGREES_TO_STEPS));
+        Command cmd = Command.moveXY(steps, new Point2f(speed, speed).div(Orbit360Control.DEGREES_TO_STEPS));
         ArrayList<Command> commands = new ArrayList<>();
         commands.add(cmd);
 
@@ -202,7 +243,7 @@ public class CommandView extends AppCompatActivity {
         seekBarSpeed.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-                // Fix - android ignores min attribute for seek bar. 
+                // Fix - android ignores min attribute for seek bar.
                 if(i < 50) {
                     speed = 50;
                 } else {
