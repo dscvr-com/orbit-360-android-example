@@ -200,6 +200,8 @@ public class CommandView extends AppCompatActivity {
 
     /**
      * Creates a new script, containing of a single command, and runs it asynchronously.
+     * Of course, it is also possible to control the Orbit360 directly, by calling the appropriate methods
+     * on an instance of Orbit360Control.
      */
     private void moveSync(Point2f steps) {
         Command cmd = Command.moveXY(steps, new Point2f(speed, speed).div(Orbit360Control.DEGREES_TO_STEPS));
@@ -264,14 +266,14 @@ public class CommandView extends AppCompatActivity {
     }
 
     private void enableButtons() {
-        setButtonsEnabeld(true);
+        setButtonsEnabled(true);
     }
 
     private void disableButtons() {
-        setButtonsEnabeld(false);
+        setButtonsEnabled(false);
     }
 
-    private void setButtonsEnabeld(boolean x) {
+    private void setButtonsEnabled(boolean x) {
         buttonDown.setEnabled(x);
         buttonUp.setEnabled(x);
         buttonRight.setEnabled(x);
